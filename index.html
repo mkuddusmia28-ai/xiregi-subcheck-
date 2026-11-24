@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>শিক্ষার্থী তথ্য অনুসন্ধান</title>
+<style>
+:root{--blue:#1456a0;--ink:#172334;--muted:#64748b;--line:#dce4ee;--bg:#f3f6fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Noto Sans Bengali",sans-serif}
+header{background:linear-gradient(120deg,#123d70,#1970b9);color:white;text-align:center;padding:28px 14px}
+header h1{font-size:clamp(21px,4vw,30px);margin:0 0 7px}header p{margin:0;opacity:.9}
+main{width:min(920px,94%);margin:24px auto}.panel{background:white;border:1px solid var(--line);border-radius:15px;padding:20px;box-shadow:0 5px 20px #16324f0c}
+.searchline{display:flex;gap:9px;margin-top:12px}input{min-width:0;flex:1;padding:13px 14px;border:1px solid #cbd5e1;border-radius:9px;font-size:16px}button{border:0;border-radius:9px;padding:12px 18px;background:var(--blue);color:#fff;font-size:15px;cursor:pointer}button.secondary{background:#e8eef6;color:#183b60}button:disabled{opacity:.5;cursor:not-allowed}
+.note{color:var(--muted);font-size:13px;line-height:1.6;margin-top:10px}.status{margin:14px 0;color:var(--muted);font-size:14px}.result{margin-top:16px}.student{border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0;background:#fff}.student h3{margin:0 0 12px;color:var(--blue);font-size:18px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.field{padding:10px;background:#f7f9fc;border-radius:8px;overflow-wrap:anywhere}.field b{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.empty{padding:22px;text-align:center;color:var(--muted);background:#f8fafc;border-radius:10px}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:22px}
+@media(max-width:600px){.searchline{flex-direction:column}.fields{grid-template-columns:1fr}.panel{padding:15px}}
+</style>
+</head>
+<body>
+<header><h1>ছেংগারচর সরকারি কলেজ</h1><p>শিক্ষার্থী তথ্য অনুসন্ধান | একাদশ শ্রেণি, ২০২৬–২০২৭</p></header>
+<main><section class="panel">
+<h2 style="margin:0">শিক্ষার্থী খুঁজুন</h2><div class="searchline"><input id="q" type="search" placeholder="নাম, রোল, রেজিস্ট্রেশন বা যেকোনো তথ্য লিখুন"><button id="searchBtn">সার্চ করুন</button></div>
+<div class="note">Excel ফাইলের যেকোনো কলামের তথ্য দিয়ে অনুসন্ধান করা যাবে। আংশিক শব্দ/নম্বর দিয়েও খোঁজা যাবে।</div>
+<div id="status" class="status">তথ্য লোড হচ্ছে…</div><div id="results" class="result"></div>
+</section></main><footer>Student Information Search</footer>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+const EXCEL_FILE='students.xlsx'; let records=[]; let headers=[];
+const $=id=>document.getElementById(id);
+function clean(v){return v==null?'':String(v).trim()}
+function loadExcel(){
+ fetch(EXCEL_FILE+'?v='+Date.now()).then(r=>{if(!r.ok)throw Error('students.xlsx পাওয়া যায়নি');return r.arrayBuffer()})
+ .then(buf=>{const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+ // এই কলেজের শিটে প্রথম ৪টি সারি শিরোনাম; ৪ নম্বর সারিতে কলামের নাম রয়েছে
+ headers=(rows[3]||[]).map((h,i)=>clean(h)||('অতিরিক্ত কলাম '+(i+1)));
+ records=rows.slice(4).filter(r=>r.some(x=>clean(x))).map((r,i)=>({number:i+1,values:r.map(clean)}));
+ $('status').textContent='মোট '+records.length+' জন শিক্ষার্থীর তথ্য লোড হয়েছে।';
+ }).catch(e=>{$('status').textContent='তথ্য লোড করা যায়নি: '+e.message+'। ওয়েবসাইটের একই ফোল্ডারে students.xlsx ফাইলটি রাখুন।'});
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function search(){const q=$('q').value.trim().toLocaleLowerCase();$('results').innerHTML='';if(!q){$('results').innerHTML='<div class="empty">অনুসন্ধানের জন্য একটি তথ্য লিখুন।</div>';return}
+const found=records.filter(o=>o.values.some(v=>v.toLocaleLowerCase().includes(q)));
+$('status').textContent='মোট '+found.length+'টি ফলাফল পাওয়া গেছে।';if(!found.length){$('results').innerHTML='<div class="empty">কোনো তথ্য পাওয়া যায়নি।</div>';return}
+$('results').innerHTML=found.map((o,idx)=>`<article class="student" id="student-${idx}"><h3>শিক্ষার্থী তথ্য — ক্রমিক ${esc(o.number)}</h3><div class="fields">${o.values.map((v,i)=>v?`<div class="field"><b>${esc(headers[i]||('কলাম '+(i+1)))}</b>${esc(v).replace(/\n/g,'<br>')}</div>`:'').join('')}</div><div class="actions"><button class="secondary" onclick="printOne('student-${idx}')">প্রিন্ট / PDF</button><button class="secondary" onclick="saveJpg('student-${idx}',${o.number})">JPG ডাউনলোড</button></div></article>`).join('');
+}
+function printOne(id){const el=document.getElementById(id);const w=window.open('','_blank');w.document.write('<html><head><meta charset="utf-8"><title>শিক্ষার্থী তথ্য</title><style>body{font-family:Arial,sans-serif;padding:20px}.field{padding:8px;border:1px solid #ddd;margin:5px}.field b{display:block;color:#555;font-size:12px;margin-bottom:4px}h3{color:#1456a0}</style></head><body>'+el.innerHTML+'</body></html>');w.document.close();w.focus();w.print()}
+function saveJpg(id,n){const el=document.getElementById(id);html2canvas(el,{scale:2,backgroundColor:'#ffffff'}).then(c=>{const a=document.createElement('a');a.download='student-'+n+'.jpg';a.href=c.toDataURL('image/jpeg',.95);a.click()})}
+$('searchBtn').addEventListener('click',search);$('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});loadExcel();
+</script></body></html>
